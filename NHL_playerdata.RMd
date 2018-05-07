@@ -1,0 +1,93 @@
+---
+title: "NHL API playground"
+author: "Abishek Murali"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+"NHL and the NHL Shield are registered trademarks of the National Hockey League. NHL and NHL team marks are the property of the NHL and its teams. © NHL 2018. All Rights Reserved."
+
+
+```{r}
+library(httr)
+library(jsonlite)
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+library(purrr)
+```
+
+## Get data
+```{r}
+player_stats_NHL <- function(playerIDs){
+  # This function accepts player IDs and output career stats
+  # Args: playerIDs: Vector of Players IDS
+  # output: Dataframe of player career stats
+  
+  #This defines URL for API
+  base_url <- "https://statsapi.web.nhl.com/api/v1/people/"
+  end_points <- "?expand=person.stats&stats=careerRegularSeason&expand=stats.team&site=en_nhl"
+  
+  #initialize empty dataframe for results
+  ovr_stats <- data.frame()
+  
+  for(i in 1:length(playerIDs)){
+    #Fetch data
+    url_playa <- paste0(base_url,playerIDs[i],end_points)
+    play_data <- GET(url_playa)
+    play_df <- fromJSON(content(play_data,"text"))
+    
+    # Extract data from mind-numbingly nested dataframe. Check if the level of nestedness
+    # can be found out programatically
+    play_stats <- as.data.frame(play_df$people$stats)
+    play_stats <- as.data.frame(play_stats$splits)$stat 
+    play_stats <- cbind(Name = play_df$people$fullName,play_stats)
+    
+    if(i == 1){
+      ovr_stats <- play_stats
+    }else{
+      ovr_stats <- rbind(ovr_stats,play_stats)
+    }
+    
+  }
+  return(ovr_stats)
+}
+```
+
+## Using API
+
+**To obtain player ID - Go to NHL.com and search for player name. In the URL the last 7 numbers indicate player ID. Copy that into the function argument.**
+
+```{r}
+player_op <- player_stats_NHL(c(8478402,8471675,8471214,8476453,8477492,8471685))
+```
+
+## Comparing goals and assists per game
+
+```{r}
+ggplot(player_op) +
+  geom_col(aes(x = Name,y = points/games),width = 0.3) +
+  geom_text(aes(x = Name,y = points/games + 0.04 ,label = round(points/games,2))) +
+  coord_flip() +
+  labs(title = "Points per games")
+```
+
+
+```{r}
+ggplot(player_op) +
+  geom_col(aes(x = Name,y = goals/games),width = 0.3) +
+  geom_text(aes(x = Name,y = goals/games + 0.04 ,label = round(goals/games,2))) +
+  coord_flip() +
+  labs(title = "Goals per games")
+```
+```{r}
+ggplot(player_op) +
+  geom_col(aes(x = Name,y = assists/games),width = 0.3) +
+  geom_text(aes(x = Name,y = assists/games + 0.04 ,label = round(assists/games,2))) +
+  coord_flip()+
+  labs(title = "Assists per games")
+```
+
